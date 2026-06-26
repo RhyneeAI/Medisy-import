@@ -63,6 +63,81 @@ class ImportController {
     }
   }
 
+  async importProgress(req, res) {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ success: false, message: 'File tidak ditemukan' });
+      }
+
+      const tipe = req.body.tipe;
+      if (!tipe) {
+        return res.status(400).json({ success: false, message: 'Parameter "tipe" diperlukan' });
+      }
+
+      const parseHandlers = {
+        tindakan: () => this.excelParser.parse(req.file.buffer, {
+          sheetName: 'Tindakan_Dokter', startRow: 2,
+          columnMapping: { Nama: 2, ICD9: 3, Biaya: 4, BHP: 5, Perawat: 6, Klinik: 7, 'Fee Dokter': 8 }
+        }),
+        pendaftaran: () => {
+          const isCsv = req.file.mimetype === 'text/csv' || req.file.mimetype === 'application/vnd.ms-excel' || req.file.originalname.endsWith('.csv');
+          return isCsv
+            ? this.csvParser.parse(req.file.buffer, { startRow: 2, columnMapping: { no_pendaftaran: 0, no_register_keluarga: 1, no_identitas: 2, nama: 3, status_menikah: 4, pendidikan: 5, bahasa_dikuasai: 6, jenis_kelamin: 7, gol_darah: 8, status_pendaftaran: 9, tanggal_lahir: 10, tempat_lahir: 11, telpon: 12, telpon_rumah: 13, email: 14, nama_penanggung_jawab: 15, alamat: 16, nama_desa: 17, nama_kecamatan: 18, nama_kota: 19, nama_provinsi: 20, negara: 21, rt: 22, rw: 23, kode_pos: 24 } })
+            : this.excelParser.parse(req.file.buffer, { sheetName: 'Pendaftaran', startRow: 2, columnMapping: { no_pendaftaran: 1, no_register_keluarga: 2, no_identitas: 3, nama: 4, status_menikah: 5, pendidikan: 6, bahasa_dikuasai: 7, jenis_kelamin: 8, gol_darah: 9, status_pendaftaran: 10, tanggal_lahir: 11, tempat_lahir: 12, telpon: 13, telpon_rumah: 14, email: 15, nama_penanggung_jawab: 16, alamat: 17, nama_desa: 18, nama_kecamatan: 19, nama_kota: 20, nama_provinsi: 21, negara: 22, rt: 23, rw: 24, kode_pos: 25 } });
+        },
+        obat: () => this.excelParser.parse(req.file.buffer, {
+          sheetName: 'List_Obat', startRow: 2,
+          columnMapping: { Kode: 2, Nama: 3, 'Kode kfa': 4, 'Code kfa': 5, Satuan: 6, 'Harga Jual': 7, 'Harga Jual Luar': 8, Kategori: 9, Golongan: 10, 'Zat Aktif': 11, Status: 12 }
+        }),
+        kunjungan: () => {
+          const isXls = req.file.originalname.match(/\.xls$/i) && !req.file.originalname.match(/\.xlsx$/i);
+          return isXls
+            ? this.xlsParser.parse(req.file.buffer, { startRow: 6, columnMapping: { NO: 0, TANGGAL: 1, NO_REGISTRASI: 2, NAMA: 3, NIK: 4, JENIS_KELAMIN: 5, STATUS_KUNJUNGAN: 6, ASURANSI: 7, NOMOR_BPJS: 8, STATUS_BEROBAT: 9, ALAMAT: 10, POLI: 11, TANGGAL_LAHIR: 12, UMUR: 13, PASIEN_BARU_LAMA: 14, DIAGNOSA: 15, BERAT_BADAN: 16, TINGGI_BADAN: 17, SISTOLE: 18, DIASTOLE: 19, SPO2: 20, RESPIRATORY_RATE: 21, HEART_RATE: 22, SUHU_BADAN: 23, LINGKAR_PERUT: 24, BMI: 25, KETERANGAN_BMI: 26, PEMERIKSAAN_LAB: 27, SKRINING_VISUAL: 28, KELUHAN: 29, RIWAYAT_PENYAKIT_SEKARANG: 30, PEMERIKSAAN_FISIK: 31, OBAT_LANGSUNG: 32, OBAT_RACIK: 33, TINDAKAN: 34 } })
+            : this.excelParser.parse(req.file.buffer, { sheetName: 'Daftar Pasien', startRow: 7, columnMapping: { NO: 1, TANGGAL: 2, NO_REGISTRASI: 3, NAMA: 4, NIK: 5, JENIS_KELAMIN: 6, STATUS_KUNJUNGAN: 7, ASURANSI: 8, NOMOR_BPJS: 9, STATUS_BEROBAT: 10, ALAMAT: 11, POLI: 12, TANGGAL_LAHIR: 13, UMUR: 14, PASIEN_BARU_LAMA: 15, DIAGNOSA: 16, BERAT_BADAN: 17, TINGGI_BADAN: 18, SISTOLE: 19, DIASTOLE: 20, SPO2: 21, RESPIRATORY_RATE: 22, HEART_RATE: 23, SUHU_BADAN: 24, LINGKAR_PERUT: 25, BMI: 26, KETERANGAN_BMI: 27, PEMERIKSAAN_LAB: 28, SKRINING_VISUAL: 29, KELUHAN: 30, RIWAYAT_PENYAKIT_SEKARANG: 31, PEMERIKSAAN_FISIK: 32, OBAT_LANGSUNG: 33, OBAT_RACIK: 34, TINDAKAN: 35 } });
+        }
+      };
+
+      const parser = parseHandlers[tipe];
+      if (!parser) {
+        return res.status(400).json({ success: false, message: `Tipe "${tipe}" tidak dikenal` });
+      }
+
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no'
+      });
+
+      const parsedData = await parser();
+      const totalRows = parsedData.length || 0;
+
+      res.write(`data: ${JSON.stringify({ type: 'start', total: totalRows })}\n\n`);
+
+      const serviceMap = {
+        tindakan: this.tindakanService,
+        pendaftaran: this.pendaftaranService,
+        obat: this.obatService,
+        kunjungan: this.kunjunganService
+      };
+
+      const service = serviceMap[tipe];
+      const onProgress = (current, total, status, item) => {
+        res.write(`data: ${JSON.stringify({ type: 'progress', current, total, status, item })}\n\n`);
+      };
+
+      const result = await service.importFromFile(parsedData, onProgress);
+
+      res.write(`data: ${JSON.stringify({ type: 'done', result })}\n\n`);
+      res.end();
+
+    } catch (error) {
+      console.error('Import progress error:', error);
+      res.write(`data: ${JSON.stringify({ type: 'error', message: error.message })}\n\n`);
+      res.end();
+    }
+  }
+
   async _importTindakan(file) {
     const excelData = await this.excelParser.parse(file.buffer, {
       sheetName: 'Tindakan_Dokter',

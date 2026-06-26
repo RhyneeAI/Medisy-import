@@ -16,7 +16,7 @@ class UsersRepository {
 
   async insert(nama) {
     const now = new Date();
-    const query = `INSERT INTO ${this.tableName} (nama_lengkap, username, password, level, jabatan, id_perusahaan, ket, created, status) VALUES (?, ?, '', 0, 0, 1, 'IMPORT', ?, '')`;
+    const query = `INSERT INTO ${this.tableName} (nama_lengkap, username, password, level, jabatan, id_perusahaan, ket, created, status, satusehat_mode) VALUES (?, ?, '', 0, 0, 1, 'IMPORT', ?, '', 0)`;
     const username = nama.toLowerCase().replace(/[^a-z0-9]/g, '_') + '_' + Date.now();
     return new Promise((resolve, reject) => {
       this.db.query(query, [nama, username, now], (err, result) => {

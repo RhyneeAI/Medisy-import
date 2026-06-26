@@ -4,7 +4,7 @@ class ImportService {
     this.idField = idField;
   }
 
-  async importFromFile(parsedData) {
+  async importFromFile(parsedData, onProgress) {
     const results = {
       success: [],
       failed: [],
@@ -23,15 +23,18 @@ class ImportService {
             row,
             reason: `Data "${row[this.idField] || row.nama || row.no_pendaftaran}" sudah ada`
           });
+          if (onProgress) onProgress(results.total, parsedData.length, 'failed', row.nama || row[this.idField] || row.no_pendaftaran);
           continue;
         }
 
         const mappedData = this.repository.mapToDatabase(row);
         await this.repository.insert(mappedData);
         results.success.push(row.nama || row[this.idField] || row.no_pendaftaran);
+        if (onProgress) onProgress(results.total, parsedData.length, 'success', row.nama || row[this.idField] || row.no_pendaftaran);
 
       } catch (error) {
         results.failed.push({ row, reason: error.message });
+        if (onProgress) onProgress(results.total, parsedData.length, 'error', error.message);
       }
     }
 

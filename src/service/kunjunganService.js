@@ -20,14 +20,18 @@ class KunjunganService {
     this.usersRepo = usersRepo;
   }
 
-  async importFromFile(parsedData) {
+  async importFromFile(parsedData, onProgress) {
     const results = { success: [], failed: [], total: 0 };
 
     for (const row of parsedData) {
       try {
         results.total++;
         const noReg = String(row.NO_REGISTRASI || '').trim();
-        if (!noReg) { results.failed.push({ row, reason: 'No registrasi kosong' }); continue; }
+        if (!noReg) {
+          results.failed.push({ row, reason: 'No registrasi kosong' });
+          if (onProgress) onProgress(results.total, parsedData.length, 'failed', '-');
+          continue;
+        }
 
         const noUrut = String(row.NO || row.no || '').trim();
         const idPendaftaran = await this._findOrCreatePendaftaran(row);
@@ -62,6 +66,20 @@ class KunjunganService {
           ket: 'IMPORT',
           created: now,
           ucode: null,
+          gdp: this._parseNumeric(row.GDP) || 0,
+          gds: this._parseNumeric(row.GDS) || 0,
+          bpjs: String(row.BPJS || '').trim() || '',
+          id_kunjungan_ranap: 0,
+          status_lab_ranap: '',
+          poli_rujuk: String(row.POLI_RUJUK || '').trim() || '',
+          asal_rujukan: String(row.ASAL_RUJUKAN || '').trim() || '',
+          tujuan_rujukan: String(row.TUJUAN_RUJUKAN || '').trim() || '',
+          rujuk_kasir: 0,
+          jenis_kunjungan: String(row.JENIS_KUNJUNGAN || '').trim() || 'RAJAL',
+          id_penjamin: 0,
+          kelengkapan_rme: '',
+          tipe_kunjungan: String(row.TIPE_KUNJUNGAN || '').trim() || '',
+          is_aps: 0,
         };
 
         const kunjunganResult = await this.kunjunganRepo.insert(kunjunganData);
@@ -75,9 +93,11 @@ class KunjunganService {
         await this._handleTindakan(row.TINDAKAN, idKunjungan, now);
 
         results.success.push(noReg);
+        if (onProgress) onProgress(results.total, parsedData.length, 'success', noReg);
 
       } catch (error) {
         results.failed.push({ row: { no_reg: row.NO_REGISTRASI }, reason: error.message });
+        if (onProgress) onProgress(results.total, parsedData.length, 'error', error.message);
       }
     }
 
@@ -162,6 +182,7 @@ class KunjunganService {
         idKategori = await this.kategoriPenyakitRepo.insert({
           kode: item.kode,
           nama: item.nama,
+          keterangan: '-',
           status: 'AKTIF',
           id_perusahaan: 1,
           ket: 'IMPORT',
@@ -193,6 +214,7 @@ class KunjunganService {
         id_pemeriksaan_lab: existing.id,
         id_kunjungan: idKunjungan,
         hasil: item.hasil || '-',
+        keterangan: '-',
         biaya: 1,
         petugas: 1,
         id_paket: 0,

@@ -6,17 +6,25 @@ class ObatService {
     this.golonganRepo = golonganRepo;
   }
 
-  async importFromFile(parsedData) {
+  async importFromFile(parsedData, onProgress) {
     const results = { success: [], failed: [], total: 0, references: { satuan: 0, kategori: 0, golongan: 0 } };
 
     for (const row of parsedData) {
       try {
         results.total++;
         const kode = (row.Kode || '').trim();
-        if (!kode) { results.failed.push({ row, reason: 'Kode tidak ditemukan' }); continue; }
+        if (!kode) {
+          results.failed.push({ row, reason: 'Kode tidak ditemukan' });
+          if (onProgress) onProgress(results.total, parsedData.length, 'failed', '-');
+          continue;
+        }
 
         const exists = await this.obatRepo.checkDuplicate(kode);
-        if (exists) { results.failed.push({ row, reason: `Obat "${kode}" sudah ada` }); continue; }
+        if (exists) {
+          results.failed.push({ row, reason: `Obat "${kode}" sudah ada` });
+          if (onProgress) onProgress(results.total, parsedData.length, 'failed', kode);
+          continue;
+        }
 
         const idSatuan = await this._resolveSatuan(row.Satuan, results.references);
         const idKategori = await this._resolveKategori(row.Kategori, results.references);
@@ -44,9 +52,11 @@ class ObatService {
 
         await this.obatRepo.insert(mappedData);
         results.success.push(kode);
+        if (onProgress) onProgress(results.total, parsedData.length, 'success', kode);
 
       } catch (error) {
         results.failed.push({ row, reason: error.message });
+        if (onProgress) onProgress(results.total, parsedData.length, 'error', error.message);
       }
     }
 

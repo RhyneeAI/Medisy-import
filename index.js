@@ -1,5 +1,6 @@
 require('dotenv').config();
 
+const os = require('os');
 const express = require('express');
 const Database = require('./src/config/database');
 const TindakanRepository = require('./src/repositories/tindakanRepository');
@@ -26,6 +27,10 @@ const createImportRoutes = require('./src/routes/importRoutes');
 
 const app = express();
 app.use(express.json());
+
+app.get('/test', (req, res) => {
+  res.json({ success: true, message: 'Server Medisy Import berjalan', time: new Date() });
+});
 
 const db = Database.createPool();
 
@@ -58,9 +63,23 @@ const kunjunganService = new KunjunganService({
 
 const importController = new ImportController({ tindakanService, pendaftaranService, obatService, kunjunganService });
 
-app.use('/api', createImportRoutes(importController));
+app.use('/', createImportRoutes(importController));
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+const networkInterfaces = os.networkInterfaces();
+let localIP = '127.0.0.1';
+for (const name of Object.keys(networkInterfaces)) {
+  for (const iface of networkInterfaces[name]) {
+    if (iface.family === 'IPv4' && !iface.internal) {
+      localIP = iface.address;
+      break;
+    }
+  }
+  if (localIP !== '127.0.0.1') break;
+}
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on:`);
+  console.log(`  Local:   http://localhost:${PORT}`);
+  console.log(`  Network: http://${localIP}:${PORT}`);
 });
