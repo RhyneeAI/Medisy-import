@@ -5,7 +5,7 @@ class TindakanRepository {
   }
 
   // Mapping field Excel ke kolom database
-  mapExcelToDatabase(excelRow) {
+  mapToDatabase(excelRow) {
     return {
       nama: excelRow.Nama || '-',
       id_icd9: parseInt(excelRow.ICD9) || 0,

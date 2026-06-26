@@ -1,58 +1,51 @@
 class ImportService {
-  constructor(tindakanRepository) {
-    this.repository = tindakanRepository;
+  constructor(repository, idField = 'Nama') {
+    this.repository = repository;
+    this.idField = idField;
   }
 
-  async importFromExcel(excelData) {
+  async importFromFile(parsedData) {
     const results = {
       success: [],
       failed: [],
       total: 0
     };
 
-    for (const row of excelData) {
+    for (const row of parsedData) {
       try {
         results.total++;
-        
-        // Cek duplikat (opsional)
-        const exists = await this.repository.checkDuplicate(row.Nama);
+
+        const exists = await this.repository.checkDuplicate(
+          row[this.idField] || row.nama || row.no_pendaftaran
+        );
         if (exists) {
           results.failed.push({
-            row: row,
-            reason: `Data "${row.Nama}" sudah ada`
+            row,
+            reason: `Data "${row[this.idField] || row.nama || row.no_pendaftaran}" sudah ada`
           });
           continue;
         }
 
-        // Map data
-        const mappedData = this.repository.mapExcelToDatabase(row);
-        
-        // Insert
+        const mappedData = this.repository.mapToDatabase(row);
         await this.repository.insert(mappedData);
-        results.success.push(row.Nama);
-        
+        results.success.push(row.nama || row[this.idField] || row.no_pendaftaran);
+
       } catch (error) {
-        results.failed.push({
-          row: row,
-          reason: error.message
-        });
+        results.failed.push({ row, reason: error.message });
       }
     }
 
     return results;
   }
 
-  async bulkImportFromExcel(excelData) {
-    const mappedData = excelData.map(row => 
-      this.repository.mapExcelToDatabase(row)
+  async bulkImport(parsedData) {
+    const mappedData = parsedData.map(row =>
+      this.repository.mapToDatabase(row)
     );
-    
+
     try {
       await this.repository.bulkInsert(mappedData);
-      return {
-        success: excelData.length,
-        total: excelData.length
-      };
+      return { success: parsedData.length, total: parsedData.length };
     } catch (error) {
       throw new Error(`Bulk import failed: ${error.message}`);
     }

@@ -7,10 +7,10 @@ const ImportController = require('../controller/importController');
 
 module.exports = (importController) => {
   router.post(
-    '/import/tindakan',
+    '/import',
     upload.single('file'),
-    importController.importTindakan.bind(importController)
+    importController.import.bind(importController)
   );
-  
+
   return router;
 };
