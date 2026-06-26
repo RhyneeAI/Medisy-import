@@ -14,6 +14,8 @@ function parseSize(val) {
   return unit === 'kb' ? num * 1024 : num * 1024 * 1024;
 }
 
+// node scripts/split-sql.js input.sql ./chunks 300
+// node scripts/split-sql.js /home/luhung/Downloads/permata-db.sql ./chunks --size 1mb
 function usage() {
   console.log(`
 Usage:
