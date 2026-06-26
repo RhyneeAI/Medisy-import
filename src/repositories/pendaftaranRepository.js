@@ -172,22 +172,20 @@ class PendaftaranRepository {
       ucode: ''
     };
 
-    if (this._isValid(csvRow.nama_provinsi)) {
-      const found = await this.findProvinsiByNama(csvRow.nama_provinsi);
-      if (found) data.provinsi = found.id;
-    }
-    if (this._isValid(csvRow.nama_kota)) {
-      const found = await this.findKotaByNama(csvRow.nama_kota);
-      if (found) data.kota = found.id;
-    }
-    if (this._isValid(csvRow.nama_kecamatan)) {
-      const found = await this.findKecamatanByNama(csvRow.nama_kecamatan);
-      if (found) data.kecamatan = found.id;
-    }
-    if (this._isValid(csvRow.nama_desa)) {
-      const found = await this.findDesaByNama(csvRow.nama_desa);
-      if (found) data.desa = found.id;
-    }
+    await Promise.all([
+      this._isValid(csvRow.nama_provinsi)
+        ? this.findProvinsiByNama(csvRow.nama_provinsi).then(v => { if (v) data.provinsi = v.id; })
+        : Promise.resolve(),
+      this._isValid(csvRow.nama_kota)
+        ? this.findKotaByNama(csvRow.nama_kota).then(v => { if (v) data.kota = v.id; })
+        : Promise.resolve(),
+      this._isValid(csvRow.nama_kecamatan)
+        ? this.findKecamatanByNama(csvRow.nama_kecamatan).then(v => { if (v) data.kecamatan = v.id; })
+        : Promise.resolve(),
+      this._isValid(csvRow.nama_desa)
+        ? this.findDesaByNama(csvRow.nama_desa).then(v => { if (v) data.desa = v.id; })
+        : Promise.resolve(),
+    ]);
 
     return data;
   }

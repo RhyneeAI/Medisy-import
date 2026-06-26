@@ -52,7 +52,7 @@ const pemeriksaanTindakanRepo = new PemeriksaanTindakanRepository(db);
 const usersRepo = new UsersRepository(db);
 
 const tindakanService = new ImportService(tindakanRepo, 'Nama');
-const pendaftaranService = new ImportService(pendaftaranRepo, 'no_pendaftaran');
+const pendaftaranService = new ImportService(pendaftaranRepo, 'no_pendaftaran', 500);
 const obatService = new ObatService({ obatRepo, satuanRepo, kategoriRepo, golonganRepo });
 const kunjunganService = new KunjunganService({
   pendaftaranRepo, kunjunganRepo, asuransiRepo, kunjunganAsuransiRepo,
@@ -78,8 +78,9 @@ for (const name of Object.keys(networkInterfaces)) {
   if (localIP !== '127.0.0.1') break;
 }
 
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on:`);
   console.log(`  Local:   http://localhost:${PORT}`);
   console.log(`  Network: http://${localIP}:${PORT}`);
 });
+server.timeout = 0;
