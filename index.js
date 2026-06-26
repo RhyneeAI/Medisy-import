@@ -84,3 +84,4 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`  Network: http://${localIP}:${PORT}`);
 });
 server.timeout = 0;
+server.keepAliveTimeout = 0;
