@@ -20,84 +20,125 @@ class KunjunganService {
     this.usersRepo = usersRepo;
   }
 
+  _buildKunjunganData(row, idPendaftaran, idDokter, tanggal, now) {
+    return {
+      id_pendaftaran: idPendaftaran,
+      tanggal,
+      id_dokter: idDokter,
+      id_layanan: 1,
+      id_antrian: 0,
+      prioritas: '1',
+      status_kunjungan: row.STATUS_KUNJUNGAN || 'UMUM',
+      status_berobat: row.STATUS_BEROBAT || 'Berobat',
+      tinggi_badan: this._parseNumeric(row.TINGGI_BADAN),
+      berat_badan: this._parseNumeric(row.BERAT_BADAN),
+      lingkar_perut: this._parseNumeric(row.LINGKAR_PERUT),
+      nilai_bmi: this._parseFloat(row.BMI),
+      sistole: this._parseNumeric(row.SISTOLE),
+      diastole: this._parseNumeric(row.DIASTOLE),
+      spo2: this._parseSpo2(row.SPO2),
+      resdiratory_rate: this._parseNumeric(row.RESPIRATORY_RATE),
+      heart_rate: this._parseNumeric(row.HEART_RATE),
+      suhu_badan: this._parseNumeric(row.SUHU_BADAN) || 0,
+      keluhan_awal: row.KELUHAN || null,
+      riwayat_peny_sekarang: row.RIWAYAT_PENYAKIT_SEKARANG || null,
+      id_user: idDokter || 0,
+      id_perusahaan: 1,
+      ket: 'IMPORT',
+      created: now,
+      ucode: null,
+      gdp: this._parseNumeric(row.GDP) || 0,
+      gds: this._parseNumeric(row.GDS) || 0,
+      bpjs: String(row.BPJS || '').trim() || '',
+      id_kunjungan_ranap: 0,
+      status_lab_ranap: '',
+      poli_rujuk: String(row.POLI_RUJUK || '').trim() || '',
+      asal_rujukan: String(row.ASAL_RUJUKAN || '').trim() || '',
+      tujuan_rujukan: String(row.TUJUAN_RUJUKAN || '').trim() || '',
+      rujuk_kasir: 0,
+      jenis_kunjungan: String(row.JENIS_KUNJUNGAN || '').trim() || 'RAJAL',
+      id_penjamin: 0,
+      kelengkapan_rme: '',
+      tipe_kunjungan: String(row.TIPE_KUNJUNGAN || '').trim() || '',
+      is_aps: 0,
+    };
+  }
+
   async importFromFile(parsedData, onProgress) {
     const results = { success: [], failed: [], total: 0 };
+    const totalRows = parsedData.length;
+    const BATCH = 200;
 
-    for (const row of parsedData) {
-      try {
+    for (let start = 0; start < totalRows; start += BATCH) {
+      const end = Math.min(start + BATCH, totalRows);
+      const batchItems = [];
+
+      // Phase 1: resolve pendaftaran, dokter, build kunjunganData
+      for (let i = start; i < end; i++) {
+        const row = parsedData[i];
         results.total++;
-        const noReg = String(row.NO_REGISTRASI || '').trim();
-        if (!noReg) {
-          results.failed.push({ row, reason: 'No registrasi kosong' });
-          if (onProgress) onProgress(results.total, parsedData.length, 'failed', '-');
-          continue;
+        try {
+          const noReg = String(row.NO_REGISTRASI || '').trim();
+          if (!noReg) {
+            throw new Error('No registrasi kosong');
+          }
+
+          const idPendaftaran = await this._findOrCreatePendaftaran(row);
+          const now = new Date();
+          const tanggal = this._parseTanggal(row.TANGGAL);
+          const idDokter = await this._resolvePemeriksa(row.POLI);
+
+          batchItems.push({
+            row,
+            now,
+            idPendaftaran,
+            kunjunganData: this._buildKunjunganData(row, idPendaftaran, idDokter, tanggal, now),
+          });
+        } catch (error) {
+          results.failed.push({ row: { no_reg: row.NO_REGISTRASI }, reason: error.message });
+          if (onProgress) onProgress(results.total, totalRows, 'error', error.message);
         }
+      }
 
-        const noUrut = String(row.NO || row.no || '').trim();
-        const idPendaftaran = await this._findOrCreatePendaftaran(row);
-        const now = new Date();
-        const tanggal = this._parseTanggal(row.TANGGAL);
+      if (batchItems.length === 0) continue;
 
-        const idDokter = await this._resolvePemeriksa(row.POLI);
-
-        const kunjunganData = {
-          id_pendaftaran: idPendaftaran,
-          tanggal,
-          id_dokter: idDokter,
-          id_layanan: 1,
-          id_antrian: 0,
-          prioritas: '1',
-          status_kunjungan: row.STATUS_KUNJUNGAN || 'UMUM',
-          status_berobat: row.STATUS_BEROBAT || 'Berobat',
-          tinggi_badan: this._parseNumeric(row.TINGGI_BADAN),
-          berat_badan: this._parseNumeric(row.BERAT_BADAN),
-          lingkar_perut: this._parseNumeric(row.LINGKAR_PERUT),
-          nilai_bmi: this._parseFloat(row.BMI),
-          sistole: this._parseNumeric(row.SISTOLE),
-          diastole: this._parseNumeric(row.DIASTOLE),
-          spo2: this._parseSpo2(row.SPO2),
-          resdiratory_rate: this._parseNumeric(row.RESPIRATORY_RATE),
-          heart_rate: this._parseNumeric(row.HEART_RATE),
-          suhu_badan: this._parseNumeric(row.SUHU_BADAN) || 0,
-          keluhan_awal: row.KELUHAN || null,
-          riwayat_peny_sekarang: row.RIWAYAT_PENYAKIT_SEKARANG || null,
-          id_user: idDokter || 0,
-          id_perusahaan: 1,
-          ket: 'IMPORT',
-          created: now,
-          ucode: null,
-          gdp: this._parseNumeric(row.GDP) || 0,
-          gds: this._parseNumeric(row.GDS) || 0,
-          bpjs: String(row.BPJS || '').trim() || '',
-          id_kunjungan_ranap: 0,
-          status_lab_ranap: '',
-          poli_rujuk: String(row.POLI_RUJUK || '').trim() || '',
-          asal_rujukan: String(row.ASAL_RUJUKAN || '').trim() || '',
-          tujuan_rujukan: String(row.TUJUAN_RUJUKAN || '').trim() || '',
-          rujuk_kasir: 0,
-          jenis_kunjungan: String(row.JENIS_KUNJUNGAN || '').trim() || 'RAJAL',
-          id_penjamin: 0,
-          kelengkapan_rme: '',
-          tipe_kunjungan: String(row.TIPE_KUNJUNGAN || '').trim() || '',
-          is_aps: 0,
-        };
-
-        const kunjunganResult = await this.kunjunganRepo.insert(kunjunganData);
-        const idKunjungan = kunjunganResult.insertId;
-
-        await this._handleAsuransi(row, idKunjungan, now);
-        await this._updateJenisPasien(idPendaftaran, row);
-        await this._handleDiagnosa(row.DIAGNOSA, idKunjungan, now);
-        await this._handleLab(row.PEMERIKSAAN_LAB, idKunjungan, now);
-        await this._handleObat(row.OBAT_LANGSUNG, idKunjungan, now);
-        await this._handleTindakan(row.TINDAKAN, idKunjungan, now);
-
-        results.success.push(noReg);
-        if (onProgress) onProgress(results.total, parsedData.length, 'success', noReg);
-
+      // Phase 2: bulk insert kunjungan
+      let insertId;
+      try {
+        const result = await this.kunjunganRepo.bulkInsert(
+          batchItems.map(item => item.kunjunganData)
+        );
+        insertId = result.insertId;
       } catch (error) {
-        results.failed.push({ row: { no_reg: row.NO_REGISTRASI }, reason: error.message });
-        if (onProgress) onProgress(results.total, parsedData.length, 'error', error.message);
+        for (const item of batchItems) {
+          results.failed.push({ row: { no_reg: item.row.NO_REGISTRASI }, reason: error.message });
+          if (onProgress) onProgress(results.total, totalRows, 'error', error.message);
+        }
+        continue;
+      }
+
+      // Phase 3: sub-operations per row
+      for (let j = 0; j < batchItems.length; j++) {
+        const { row, now, idPendaftaran } = batchItems[j];
+        const idKunjungan = insertId + j;
+        try {
+          const noReg = String(row.NO_REGISTRASI || '').trim();
+
+          await Promise.all([
+            this._handleAsuransi(row, idKunjungan, now),
+            this._updateJenisPasien(idPendaftaran, row),
+            this._handleDiagnosa(row.DIAGNOSA, idKunjungan, now),
+            this._handleLab(row.PEMERIKSAAN_LAB, idKunjungan, now),
+            this._handleObat(row.OBAT_LANGSUNG, idKunjungan, now),
+            this._handleTindakan(row.TINDAKAN, idKunjungan, now),
+          ]);
+
+          results.success.push(noReg);
+          if (onProgress) onProgress(results.total, totalRows, 'success', noReg);
+        } catch (error) {
+          results.failed.push({ row: { no_reg: row.NO_REGISTRASI }, reason: error.message });
+          if (onProgress) onProgress(results.total, totalRows, 'error', error.message);
+        }
       }
     }
 
