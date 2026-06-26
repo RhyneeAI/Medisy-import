@@ -27,7 +27,7 @@ class ImportService {
           continue;
         }
 
-        const mappedData = this.repository.mapToDatabase(row);
+        const mappedData = await this.repository.mapToDatabase(row);
         await this.repository.insert(mappedData);
         results.success.push(row.nama || row[this.idField] || row.no_pendaftaran);
         if (onProgress) onProgress(results.total, parsedData.length, 'success', row.nama || row[this.idField] || row.no_pendaftaran);
@@ -42,9 +42,9 @@ class ImportService {
   }
 
   async bulkImport(parsedData) {
-    const mappedData = parsedData.map(row =>
+    const mappedData = await Promise.all(parsedData.map(row =>
       this.repository.mapToDatabase(row)
-    );
+    ));
 
     try {
       await this.repository.bulkInsert(mappedData);

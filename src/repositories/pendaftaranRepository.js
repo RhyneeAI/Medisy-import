@@ -4,11 +4,46 @@ class PendaftaranRepository {
     this.tableName = 'kk_pendaftaran';
   }
 
-  mapToDatabase(csvRow) {
+  _isValid(value) {
+    return value && value !== 'NULL' && value.trim() !== '';
+  }
+
+  _query(sql, params) {
+    return new Promise((resolve, reject) => {
+      this.db.query(sql, params, (err, results) => {
+        if (err) reject(err);
+        else resolve(results);
+      });
+    });
+  }
+
+  async findProvinsiByNama(nama) {
+    const rows = await this._query('SELECT id FROM kk_provinsi WHERE TRIM(nama) = ? LIMIT 1', [nama.trim()]);
+    return rows.length ? rows[0] : null;
+  }
+
+  async findKotaByNama(nama) {
+    const rows = await this._query('SELECT id FROM kk_kota WHERE TRIM(nama) = ? LIMIT 1', [nama.trim()]);
+    return rows.length ? rows[0] : null;
+  }
+
+  async findKecamatanByNama(nama) {
+    const rows = await this._query('SELECT id FROM kk_kecamatan WHERE TRIM(nama) = ? LIMIT 1', [nama.trim()]);
+    return rows.length ? rows[0] : null;
+  }
+
+  async findDesaByNama(nama) {
+    const rows = await this._query('SELECT id FROM kk_desa WHERE TRIM(nama) = ? LIMIT 1', [nama.trim()]);
+    return rows.length ? rows[0] : null;
+  }
+
+  async mapToDatabase(csvRow) {
     const now = new Date();
-    return {
+    const tanggal = now.toISOString().split('T')[0];
+    const data = {
       nama: csvRow.nama || '',
-      no_pendaftaran: csvRow.no_pendaftaran || '',
+      no_pendaftaran: csvRow.no_pendaftaran ? csvRow.no_pendaftaran.replace(/\D/g, '') : '',
+      tanggal,
       no_register_keluarga: csvRow.no_register_keluarga || '',
       no_identitas: csvRow.no_identitas || null,
       status_menikah: csvRow.status_menikah || null,
@@ -36,6 +71,25 @@ class PendaftaranRepository {
       hash_id: '',
       ucode: ''
     };
+
+    if (this._isValid(csvRow.nama_provinsi)) {
+      const provinsi = await this.findProvinsiByNama(csvRow.nama_provinsi);
+      if (provinsi) data.provinsi = provinsi.id;
+    }
+    if (this._isValid(csvRow.nama_kota)) {
+      const kota = await this.findKotaByNama(csvRow.nama_kota);
+      if (kota) data.kota = kota.id;
+    }
+    if (this._isValid(csvRow.nama_kecamatan)) {
+      const kecamatan = await this.findKecamatanByNama(csvRow.nama_kecamatan);
+      if (kecamatan) data.kecamatan = kecamatan.id;
+    }
+    if (this._isValid(csvRow.nama_desa)) {
+      const desa = await this.findDesaByNama(csvRow.nama_desa);
+      if (desa) data.desa = desa.id;
+    }
+
+    return data;
   }
 
   async insert(data) {
