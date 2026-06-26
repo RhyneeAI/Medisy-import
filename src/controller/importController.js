@@ -64,6 +64,7 @@ class ImportController {
   }
 
   async importProgress(req, res) {
+    let heartbeat;
     try {
       if (!req.file) {
         return res.status(400).json({ success: false, message: 'File tidak ditemukan' });
@@ -73,6 +74,10 @@ class ImportController {
       if (!tipe) {
         return res.status(400).json({ success: false, message: 'Parameter "tipe" diperlukan' });
       }
+
+      heartbeat = setInterval(() => {
+        if (!res.destroyed) res.write(`data: ${JSON.stringify({ type: 'ping' })}\n\n`);
+      }, 10000);
 
       const parseHandlers = {
         tindakan: () => this.excelParser.parse(req.file.buffer, {
@@ -99,6 +104,7 @@ class ImportController {
 
       const parser = parseHandlers[tipe];
       if (!parser) {
+        clearInterval(heartbeat);
         return res.status(400).json({ success: false, message: `Tipe "${tipe}" tidak dikenal` });
       }
 
@@ -133,6 +139,8 @@ class ImportController {
 
       const result = await service.importFromFile(parsedData, onProgress);
 
+      clearInterval(heartbeat);
+
       if (!aborted) {
         res.write(`data: ${JSON.stringify({ type: 'done', result })}\n\n`);
         res.end();
@@ -140,8 +148,11 @@ class ImportController {
 
     } catch (error) {
       console.error('Import progress error:', error);
-      res.write(`data: ${JSON.stringify({ type: 'error', message: error.message })}\n\n`);
-      res.end();
+      clearInterval(heartbeat);
+      if (!res.destroyed) {
+        res.write(`data: ${JSON.stringify({ type: 'error', message: error.message })}\n\n`);
+        res.end();
+      }
     }
   }
 
