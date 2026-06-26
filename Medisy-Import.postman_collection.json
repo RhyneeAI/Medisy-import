@@ -27,11 +27,11 @@
           ]
         },
         "url": {
-          "raw": "{{base_url}}/import",
+          "raw": "{{base_url}}/import/progress",
           "host": ["{{base_url}}"],
-          "path": ["import"]
+          "path": ["import", "progress"]
         },
-        "description": "Import data tindakan dokter dari file Excel (.xlsx)"
+        "description": "Import data tindakan dokter dari file Excel (.xlsx) (SSE streaming)"
       }
     },
     {
@@ -56,11 +56,11 @@
           ]
         },
         "url": {
-          "raw": "{{base_url}}/import",
+          "raw": "{{base_url}}/import/progress",
           "host": ["{{base_url}}"],
-          "path": ["import"]
+          "path": ["import", "progress"]
         },
-        "description": "Import data pendaftaran pasien dari file CSV atau Excel"
+        "description": "Import data pendaftaran pasien dari file CSV atau Excel (SSE streaming)"
       }
     },
     {
@@ -85,11 +85,11 @@
           ]
         },
         "url": {
-          "raw": "{{base_url}}/import",
+          "raw": "{{base_url}}/import/progress",
           "host": ["{{base_url}}"],
-          "path": ["import"]
+          "path": ["import", "progress"]
         },
-        "description": "Import data obat dari file Excel (.xlsx)"
+        "description": "Import data obat dari file Excel (.xlsx) (SSE streaming)"
       }
     },
     {
@@ -114,123 +114,24 @@
           ]
         },
         "url": {
-          "raw": "{{base_url}}/import",
-          "host": ["{{base_url}}"],
-          "path": ["import"]
-        },
-        "description": "Import data kunjungan pasien dari file Excel (.xls / .xlsx)"
-      }
-    },
-    {
-      "name": "Import Tindakan (Progress SSE)",
-      "request": {
-        "method": "POST",
-        "header": [],
-        "body": {
-          "mode": "formdata",
-          "formdata": [
-            {
-              "key": "file",
-              "type": "file",
-              "src": ""
-            },
-            {
-              "key": "tipe",
-              "value": "tindakan",
-              "type": "text"
-            }
-          ]
-        },
-        "url": {
           "raw": "{{base_url}}/import/progress",
           "host": ["{{base_url}}"],
           "path": ["import", "progress"]
         },
-        "description": "Sama seperti Import Tindakan, tapi response-nya SSE real-time (progress per row)"
+        "description": "Import data kunjungan pasien dari file Excel (.xls / .xlsx) (SSE streaming)"
       }
     },
     {
-      "name": "Import Pendaftaran (Progress SSE)",
+      "name": "Health Check",
       "request": {
-        "method": "POST",
+        "method": "GET",
         "header": [],
-        "body": {
-          "mode": "formdata",
-          "formdata": [
-            {
-              "key": "file",
-              "type": "file",
-              "src": ""
-            },
-            {
-              "key": "tipe",
-              "value": "pendaftaran",
-              "type": "text"
-            }
-          ]
-        },
         "url": {
-          "raw": "{{base_url}}/import/progress",
+          "raw": "{{base_url}}/test",
           "host": ["{{base_url}}"],
-          "path": ["import", "progress"]
+          "path": ["test"]
         },
-        "description": "Sama seperti Import Pendaftaran, tapi response-nya SSE real-time (progress per row)"
-      }
-    },
-    {
-      "name": "Import Obat (Progress SSE)",
-      "request": {
-        "method": "POST",
-        "header": [],
-        "body": {
-          "mode": "formdata",
-          "formdata": [
-            {
-              "key": "file",
-              "type": "file",
-              "src": ""
-            },
-            {
-              "key": "tipe",
-              "value": "obat",
-              "type": "text"
-            }
-          ]
-        },
-        "url": {
-          "raw": "{{base_url}}/import/progress",
-          "host": ["{{base_url}}"],
-          "path": ["import", "progress"]
-        },
-        "description": "Sama seperti Import Obat, tapi response-nya SSE real-time (progress per row)"
-      }
-    },
-    {
-      "name": "Import Kunjungan (Progress SSE)",
-      "request": {
-        "method": "POST",
-        "header": [],
-        "body": {
-          "mode": "formdata",
-          "formdata": [
-            {
-              "key": "file",
-              "type": "file",
-              "src": ""
-            },
-            {
-              "key": "tipe",
-              "value": "kunjungan",
-              "type": "text"
-            }
-          ]
-        },
-        "url": {
-          "raw": "{{base_url}}/import/progress",
-          "host": ["{{base_url}}"],
-          "path": ["import", "progress"]
-        },
-        "description": "Sama seperti Import Kunjungan, tapi response-nya SSE real-time (progress per row)"
+        "description": "Cek status server"
       }
     }
   ],
