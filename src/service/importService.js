@@ -75,14 +75,16 @@ class ImportService {
 
     for (const [i, row] of parsedData.entries()) {
       try {
+        const rawId = row[this.idField] || row.nama || row.no_pendaftaran;
+        const idValue = rawId && this.idField === 'no_pendaftaran' ? rawId.replace(/\D/g, '') : rawId;
+
         if (i < startIndex) {
           results.total++;
-          if (existingIds) existingIds.add(row[this.idField] || row.nama || row.no_pendaftaran);
+          if (existingIds) existingIds.add(idValue);
           continue;
         }
 
         results.total++;
-        const idValue = row[this.idField] || row.nama || row.no_pendaftaran;
 
         let isDuplicate = false;
         if (existingIds) {
