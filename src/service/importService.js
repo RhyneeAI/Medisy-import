@@ -49,7 +49,18 @@ class ImportService {
 
     // resume: skip rows already processed in a previous run
     let startIndex = 0;
-    if (typeof this.repository.loadProgress === 'function') {
+
+    // env override: IMPORT_START_ROW=17001 → skip first 17000 rows (1-indexed)
+    if (process.env.IMPORT_START_ROW) {
+      const envStart = parseInt(process.env.IMPORT_START_ROW, 10);
+      if (!isNaN(envStart) && envStart > 1) {
+        startIndex = envStart - 1;
+        results.resumed = true;
+        console.log(`[ImportService] env IMPORT_START_ROW=${envStart} → starting from row ${startIndex}`);
+      }
+    }
+
+    if (startIndex === 0 && typeof this.repository.loadProgress === 'function') {
       try {
         const saved = this.repository.loadProgress(totalRows);
         if (saved !== null && saved >= 0) {
