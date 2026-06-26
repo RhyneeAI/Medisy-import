@@ -12,13 +12,13 @@ module.exports = (importController) => {
 
   router.post(
     '/import',
-    upload.single('file'),
+    upload.array('file'),
     importController.import.bind(importController)
   );
 
   router.post(
     '/import/progress',
-    upload.single('file'),
+    upload.array('file'),
     importController.importProgress.bind(importController)
   );
 
