@@ -1,12 +1,15 @@
 const ExcelParser = require('../utils/excelParser');
+const XlsParser = require('../utils/xlsParser');
 const CsvParser = require('../utils/csvParser');
 
 class ImportController {
-  constructor({ tindakanService, pendaftaranService, obatService }) {
+  constructor({ tindakanService, pendaftaranService, obatService, kunjunganService }) {
     this.tindakanService = tindakanService;
     this.pendaftaranService = pendaftaranService;
     this.obatService = obatService;
+    this.kunjunganService = kunjunganService;
     this.excelParser = new ExcelParser();
+    this.xlsParser = new XlsParser();
     this.csvParser = new CsvParser();
   }
 
@@ -23,14 +26,15 @@ class ImportController {
       if (!tipe) {
         return res.status(400).json({
           success: false,
-          message: 'Parameter "tipe" diperlukan (tindakan / pendaftaran)'
+          message: 'Parameter "tipe" diperlukan (tindakan / pendaftaran / obat / kunjungan)'
         });
       }
 
       const handlers = {
         tindakan: () => this._importTindakan(req.file),
         pendaftaran: () => this._importPendaftaran(req.file),
-        obat: () => this._importObat(req.file)
+        obat: () => this._importObat(req.file),
+        kunjungan: () => this._importKunjungan(req.file)
       };
 
       const handler = handlers[tipe];
@@ -168,6 +172,96 @@ class ImportController {
     });
 
     return this.obatService.importFromFile(excelData);
+  }
+
+  async _importKunjungan(file) {
+    const isXls = file.originalname.match(/\.xls$/i) &&
+      !file.originalname.match(/\.xlsx$/i);
+
+    const data = isXls
+      ? this.xlsParser.parse(file.buffer, {
+          startRow: 6,
+          columnMapping: {
+            NO: 0,
+            TANGGAL: 1,
+            NO_REGISTRASI: 2,
+            NAMA: 3,
+            NIK: 4,
+            JENIS_KELAMIN: 5,
+            STATUS_KUNJUNGAN: 6,
+            ASURANSI: 7,
+            NOMOR_BPJS: 8,
+            STATUS_BEROBAT: 9,
+            ALAMAT: 10,
+            POLI: 11,
+            TANGGAL_LAHIR: 12,
+            UMUR: 13,
+            PASIEN_BARU_LAMA: 14,
+            DIAGNOSA: 15,
+            BERAT_BADAN: 16,
+            TINGGI_BADAN: 17,
+            SISTOLE: 18,
+            DIASTOLE: 19,
+            SPO2: 20,
+            RESPIRATORY_RATE: 21,
+            HEART_RATE: 22,
+            SUHU_BADAN: 23,
+            LINGKAR_PERUT: 24,
+            BMI: 25,
+            KETERANGAN_BMI: 26,
+            PEMERIKSAAN_LAB: 27,
+            SKRINING_VISUAL: 28,
+            KELUHAN: 29,
+            RIWAYAT_PENYAKIT_SEKARANG: 30,
+            PEMERIKSAAN_FISIK: 31,
+            OBAT_LANGSUNG: 32,
+            OBAT_RACIK: 33,
+            TINDAKAN: 34,
+          }
+        })
+      : await this.excelParser.parse(file.buffer, {
+          sheetName: 'Daftar Pasien',
+          startRow: 7,
+          columnMapping: {
+            NO: 1,
+            TANGGAL: 2,
+            NO_REGISTRASI: 3,
+            NAMA: 4,
+            NIK: 5,
+            JENIS_KELAMIN: 6,
+            STATUS_KUNJUNGAN: 7,
+            ASURANSI: 8,
+            NOMOR_BPJS: 9,
+            STATUS_BEROBAT: 10,
+            ALAMAT: 11,
+            POLI: 12,
+            TANGGAL_LAHIR: 13,
+            UMUR: 14,
+            PASIEN_BARU_LAMA: 15,
+            DIAGNOSA: 16,
+            BERAT_BADAN: 17,
+            TINGGI_BADAN: 18,
+            SISTOLE: 19,
+            DIASTOLE: 20,
+            SPO2: 21,
+            RESPIRATORY_RATE: 22,
+            HEART_RATE: 23,
+            SUHU_BADAN: 24,
+            LINGKAR_PERUT: 25,
+            BMI: 26,
+            KETERANGAN_BMI: 27,
+            PEMERIKSAAN_LAB: 28,
+            SKRINING_VISUAL: 29,
+            KELUHAN: 30,
+            RIWAYAT_PENYAKIT_SEKARANG: 31,
+            PEMERIKSAAN_FISIK: 32,
+            OBAT_LANGSUNG: 33,
+            OBAT_RACIK: 34,
+            TINDAKAN: 35,
+          }
+        });
+
+    return this.kunjunganService.importFromFile(data);
   }
 }
 

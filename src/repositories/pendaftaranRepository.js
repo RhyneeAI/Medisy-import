@@ -82,6 +82,34 @@ class PendaftaranRepository {
       });
     });
   }
+
+  async findByNikOrNama(nik, nama) {
+    let query;
+    let params;
+    if (nik && nik !== 'NULL' && nik !== '') {
+      query = `SELECT id FROM ${this.tableName} WHERE (no_identitas = ? OR LOWER(TRIM(nama)) = LOWER(TRIM(?))) AND deleted IS NULL LIMIT 1`;
+      params = [nik, nama];
+    } else {
+      query = `SELECT id FROM ${this.tableName} WHERE LOWER(TRIM(nama)) = LOWER(TRIM(?)) AND deleted IS NULL LIMIT 1`;
+      params = [nama];
+    }
+    return new Promise((resolve, reject) => {
+      this.db.query(query, params, (err, results) => {
+        if (err) reject(err);
+        else resolve(results.length > 0 ? results[0] : null);
+      });
+    });
+  }
+
+  async updateJenisPasien(id, jenisPasien) {
+    const query = `UPDATE ${this.tableName} SET jenis_pasien = ? WHERE id = ?`;
+    return new Promise((resolve, reject) => {
+      this.db.query(query, [jenisPasien, id], (err, result) => {
+        if (err) reject(err);
+        else resolve(result);
+      });
+    });
+  }
 }
 
 module.exports = PendaftaranRepository;
