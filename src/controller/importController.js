@@ -108,11 +108,15 @@ class ImportController {
         Connection: 'keep-alive',
         'X-Accel-Buffering': 'no'
       });
+      res.on('error', () => {});
+
+      let aborted = false;
+      req.on('close', () => { aborted = true; });
 
       const parsedData = await parser();
       const totalRows = parsedData.length || 0;
 
-      res.write(`data: ${JSON.stringify({ type: 'start', total: totalRows })}\n\n`);
+      if (!aborted) res.write(`data: ${JSON.stringify({ type: 'start', total: totalRows })}\n\n`);
 
       const serviceMap = {
         tindakan: this.tindakanService,
@@ -123,13 +127,16 @@ class ImportController {
 
       const service = serviceMap[tipe];
       const onProgress = (current, total, status, item) => {
+        if (aborted) return;
         res.write(`data: ${JSON.stringify({ type: 'progress', current, total, status, item })}\n\n`);
       };
 
       const result = await service.importFromFile(parsedData, onProgress);
 
-      res.write(`data: ${JSON.stringify({ type: 'done', result })}\n\n`);
-      res.end();
+      if (!aborted) {
+        res.write(`data: ${JSON.stringify({ type: 'done', result })}\n\n`);
+        res.end();
+      }
 
     } catch (error) {
       console.error('Import progress error:', error);

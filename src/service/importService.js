@@ -24,8 +24,8 @@ class ImportService {
     for (const item of batch) {
       const name = item.nama || item[this.idField] || item.no_pendaftaran;
       results.success.push(name);
-      this._progress(onProgress, results.total, parsedLength, 'success', name);
     }
+    this._progress(onProgress, results.total, parsedLength, 'success', `batch ${batch.length}`);
     batch.length = 0;
   }
 
