@@ -1,8 +1,32 @@
 class ImportService {
-  constructor(repository, idField = 'Nama', batchSize = 500) {
+  constructor(repository, idField = 'Nama', batchSize = 100) {
     this.repository = repository;
     this.idField = idField;
     this.batchSize = batchSize;
+  }
+
+  _progress(onProgress, ...args) {
+    try {
+      if (onProgress) onProgress(...args);
+    } catch (e) {
+      console.error('[ImportService] progress error (client may have disconnected):', e.message);
+    }
+  }
+
+  async _flush(batch, results, parsedLength, onProgress) {
+    if (!batch.length) return;
+
+    await this.repository.bulkInsert(batch);
+    if (typeof this.repository.generateInsertSql === 'function') {
+      this.repository.generateInsertSql(batch);
+    }
+
+    for (const item of batch) {
+      const name = item.nama || item[this.idField] || item.no_pendaftaran;
+      results.success.push(name);
+      this._progress(onProgress, results.total, parsedLength, 'success', name);
+    }
+    batch.length = 0;
   }
 
   async importFromFile(parsedData, onProgress) {
@@ -11,13 +35,18 @@ class ImportService {
 
     let existingIds = null;
     if (typeof this.repository.loadAllExistingIds === 'function') {
-      existingIds = await this.repository.loadAllExistingIds();
+      try {
+        existingIds = await this.repository.loadAllExistingIds();
+        console.log(`[ImportService] preloaded ${existingIds.size} existing IDs`);
+      } catch (e) {
+        console.error('[ImportService] failed to preload IDs:', e.message);
+      }
       if (typeof this.repository.clearCache === 'function') {
         this.repository.clearCache();
       }
     }
 
-    for (const row of parsedData) {
+    for (const [i, row] of parsedData.entries()) {
       try {
         results.total++;
         const idValue = row[this.idField] || row.nama || row.no_pendaftaran;
@@ -31,7 +60,7 @@ class ImportService {
 
         if (isDuplicate) {
           results.failed.push({ row, reason: `Data "${idValue}" sudah ada` });
-          if (onProgress) onProgress(results.total, parsedData.length, 'failed', row.nama || row[this.idField] || row.no_pendaftaran);
+          this._progress(onProgress, results.total, parsedData.length, 'failed', row.nama || row[this.idField] || row.no_pendaftaran);
           continue;
         }
 
@@ -40,31 +69,25 @@ class ImportService {
         if (existingIds) existingIds.add(idValue);
 
         if (batch.length >= this.batchSize) {
-          await this.repository.bulkInsert(batch);
-          if (typeof this.repository.generateInsertSql === 'function') {
-            this.repository.generateInsertSql(batch);
-          }
-          for (const item of batch) {
-            results.success.push(item.nama || item[this.idField] || item.no_pendaftaran);
-            if (onProgress) onProgress(results.total, parsedData.length, 'success', item.nama || item[this.idField] || item.no_pendaftaran);
-          }
-          batch.length = 0;
+          await this._flush(batch, results, parsedData.length, onProgress);
         }
       } catch (error) {
+        console.error(`[ImportService] error at row ${i}:`, error.message);
         results.failed.push({ row, reason: error.message });
-        if (onProgress) onProgress(results.total, parsedData.length, 'error', error.message);
+        batch.length = 0;
+        this._progress(onProgress, results.total, parsedData.length, 'error', error.message);
       }
     }
 
-    if (batch.length > 0) {
-      await this.repository.bulkInsert(batch);
-      if (typeof this.repository.generateInsertSql === 'function') {
-        this.repository.generateInsertSql(batch);
-      }
+    // flush remaining
+    try {
+      await this._flush(batch, results, parsedData.length, onProgress);
+    } catch (error) {
+      console.error('[ImportService] final flush error:', error.message);
       for (const item of batch) {
-        results.success.push(item.nama || item[this.idField] || item.no_pendaftaran);
-        if (onProgress) onProgress(results.total, parsedData.length, 'success', item.nama || item[this.idField] || item.no_pendaftaran);
+        results.failed.push({ row: item, reason: error.message });
       }
+      this._progress(onProgress, results.total, parsedData.length, 'error', error.message);
     }
 
     return results;
