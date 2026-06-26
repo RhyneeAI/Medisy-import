@@ -159,6 +159,10 @@ class PendaftaranRepository {
       rw: csvRow.rw || null,
       kode_pos: csvRow.kode_pos || null,
       negara: csvRow.negara || null,
+      provinsi: null,
+      kota: null,
+      kecamatan: null,
+      desa: null,
       user: 0,
       id_perusahaan: 1,
       created: now,
@@ -169,20 +173,20 @@ class PendaftaranRepository {
     };
 
     if (this._isValid(csvRow.nama_provinsi)) {
-      const provinsi = await this.findProvinsiByNama(csvRow.nama_provinsi);
-      if (provinsi) data.provinsi = provinsi.id;
+      const found = await this.findProvinsiByNama(csvRow.nama_provinsi);
+      if (found) data.provinsi = found.id;
     }
     if (this._isValid(csvRow.nama_kota)) {
-      const kota = await this.findKotaByNama(csvRow.nama_kota);
-      if (kota) data.kota = kota.id;
+      const found = await this.findKotaByNama(csvRow.nama_kota);
+      if (found) data.kota = found.id;
     }
     if (this._isValid(csvRow.nama_kecamatan)) {
-      const kecamatan = await this.findKecamatanByNama(csvRow.nama_kecamatan);
-      if (kecamatan) data.kecamatan = kecamatan.id;
+      const found = await this.findKecamatanByNama(csvRow.nama_kecamatan);
+      if (found) data.kecamatan = found.id;
     }
     if (this._isValid(csvRow.nama_desa)) {
-      const desa = await this.findDesaByNama(csvRow.nama_desa);
-      if (desa) data.desa = desa.id;
+      const found = await this.findDesaByNama(csvRow.nama_desa);
+      if (found) data.desa = found.id;
     }
 
     return data;
