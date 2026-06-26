@@ -2,9 +2,10 @@ const ExcelParser = require('../utils/excelParser');
 const CsvParser = require('../utils/csvParser');
 
 class ImportController {
-  constructor({ tindakanService, pendaftaranService }) {
+  constructor({ tindakanService, pendaftaranService, obatService }) {
     this.tindakanService = tindakanService;
     this.pendaftaranService = pendaftaranService;
+    this.obatService = obatService;
     this.excelParser = new ExcelParser();
     this.csvParser = new CsvParser();
   }
@@ -28,7 +29,8 @@ class ImportController {
 
       const handlers = {
         tindakan: () => this._importTindakan(req.file),
-        pendaftaran: () => this._importPendaftaran(req.file)
+        pendaftaran: () => this._importPendaftaran(req.file),
+        obat: () => this._importObat(req.file)
       };
 
       const handler = handlers[tipe];
@@ -144,6 +146,28 @@ class ImportController {
         });
 
     return this.pendaftaranService.importFromFile(data);
+  }
+
+  async _importObat(file) {
+    const excelData = await this.excelParser.parse(file.buffer, {
+      sheetName: 'List_Obat',
+      startRow: 2,
+      columnMapping: {
+        Kode: 2,
+        Nama: 3,
+        'Kode kfa': 4,
+        'Code kfa': 5,
+        Satuan: 6,
+        'Harga Jual': 7,
+        'Harga Jual Luar': 8,
+        Kategori: 9,
+        Golongan: 10,
+        'Zat Aktif': 11,
+        Status: 12
+      }
+    });
+
+    return this.obatService.importFromFile(excelData);
   }
 }
 
