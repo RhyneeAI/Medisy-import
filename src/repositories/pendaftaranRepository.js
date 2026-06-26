@@ -1,7 +1,29 @@
+const fs = require('fs');
+const path = require('path');
+
 class PendaftaranRepository {
   constructor(db) {
     this.db = db;
     this.tableName = 'kk_pendaftaran';
+    this._provinsiCache = new Map();
+    this._kotaCache = new Map();
+    this._kecamatanCache = new Map();
+    this._desaCache = new Map();
+    this._sqlFile = null;
+  }
+
+  clearCache() {
+    this._provinsiCache.clear();
+    this._kotaCache.clear();
+    this._kecamatanCache.clear();
+    this._desaCache.clear();
+  }
+
+  async loadAllExistingIds() {
+    const rows = await this._query(
+      `SELECT no_pendaftaran FROM ${this.tableName} WHERE deleted IS NULL`
+    );
+    return new Set(rows.map(r => r.no_pendaftaran));
   }
 
   _isValid(value) {
@@ -17,24 +39,70 @@ class PendaftaranRepository {
     });
   }
 
+  async _lookupWithCache(cache, query, nama) {
+    const key = nama.trim().toLowerCase();
+    if (cache.has(key)) return cache.get(key);
+    const rows = await this._query(query, [nama.trim()]);
+    const result = rows.length ? rows[0] : null;
+    cache.set(key, result);
+    return result;
+  }
+
   async findProvinsiByNama(nama) {
-    const rows = await this._query('SELECT id FROM kk_provinsi WHERE TRIM(nama) = ? LIMIT 1', [nama.trim()]);
-    return rows.length ? rows[0] : null;
+    return this._lookupWithCache(
+      this._provinsiCache,
+      'SELECT id FROM kk_provinsi WHERE TRIM(nama) = ? LIMIT 1',
+      nama
+    );
   }
 
   async findKotaByNama(nama) {
-    const rows = await this._query('SELECT id FROM kk_kota WHERE TRIM(nama) = ? LIMIT 1', [nama.trim()]);
-    return rows.length ? rows[0] : null;
+    return this._lookupWithCache(
+      this._kotaCache,
+      'SELECT id FROM kk_kota WHERE TRIM(nama) = ? LIMIT 1',
+      nama
+    );
   }
 
   async findKecamatanByNama(nama) {
-    const rows = await this._query('SELECT id FROM kk_kecamatan WHERE TRIM(nama) = ? LIMIT 1', [nama.trim()]);
-    return rows.length ? rows[0] : null;
+    return this._lookupWithCache(
+      this._kecamatanCache,
+      'SELECT id FROM kk_kecamatan WHERE TRIM(nama) = ? LIMIT 1',
+      nama
+    );
   }
 
   async findDesaByNama(nama) {
-    const rows = await this._query('SELECT id FROM kk_desa WHERE TRIM(nama) = ? LIMIT 1', [nama.trim()]);
-    return rows.length ? rows[0] : null;
+    return this._lookupWithCache(
+      this._desaCache,
+      'SELECT id FROM kk_desa WHERE TRIM(nama) = ? LIMIT 1',
+      nama
+    );
+  }
+
+  generateInsertSql(dataArray) {
+    if (!this._sqlFile) {
+      const ts = new Date().toISOString().replace(/[:.]/g, '-');
+      this._sqlFile = path.join(__dirname, '../../sql-output', `pendaftaran-${ts}.sql`);
+      const dir = path.dirname(this._sqlFile);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    }
+
+    const _fmt = v => {
+      if (v === null || v === undefined) return 'NULL';
+      if (v instanceof Date) return `'${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,'0')}-${String(v.getDate()).padStart(2,'0')} ${String(v.getHours()).padStart(2,'0')}:${String(v.getMinutes()).padStart(2,'0')}:${String(v.getSeconds()).padStart(2,'0')}'`;
+      if (typeof v === 'number') return String(v);
+      return `'${String(v).replace(/'/g, "\\'")}'`;
+    };
+
+    const columns = Object.keys(dataArray[0]);
+    const lines = dataArray.map(data => {
+      const values = columns.map(col => _fmt(data[col]));
+      return `INSERT INTO \`${this.tableName}\` (\`${columns.join('`, `')}\`) VALUES (${values.join(', ')});`;
+    });
+
+    fs.appendFileSync(this._sqlFile, lines.join('\n') + '\n', 'utf8');
+    return this._sqlFile;
   }
 
   async mapToDatabase(csvRow) {
