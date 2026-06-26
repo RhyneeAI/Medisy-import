@@ -30,7 +30,7 @@ class ImportService {
   }
 
   async importFromFile(parsedData, onProgress) {
-    const results = { success: [], failed: [], total: 0, resumed: false };
+    const results = { success: [], failed: [], total: 0 };
     const batch = [];
     const totalRows = parsedData.length;
 
@@ -47,44 +47,11 @@ class ImportService {
       }
     }
 
-    // resume: skip rows already processed in a previous run
-    let startIndex = 0;
-
-    // env override: IMPORT_START_ROW=17001 → skip first 17000 rows (1-indexed)
-    if (process.env.IMPORT_START_ROW) {
-      const envStart = parseInt(process.env.IMPORT_START_ROW, 10);
-      if (!isNaN(envStart) && envStart > 1) {
-        startIndex = envStart - 1;
-        results.resumed = true;
-        console.log(`[ImportService] env IMPORT_START_ROW=${envStart} → starting from row ${startIndex}`);
-      }
-    }
-
-    if (startIndex === 0 && typeof this.repository.loadProgress === 'function') {
-      try {
-        const saved = this.repository.loadProgress(totalRows);
-        if (saved !== null && saved >= 0) {
-          startIndex = saved + 1;
-          results.resumed = true;
-          console.log(`[ImportService] resuming from row ${startIndex} of ${totalRows}`);
-        }
-      } catch (e) {
-        console.error('[ImportService] loadProgress error:', e.message);
-      }
-    }
-
     for (const [i, row] of parsedData.entries()) {
       try {
+        results.total++;
         const rawId = row[this.idField] || row.nama || row.no_pendaftaran;
         const idValue = rawId && this.idField === 'no_pendaftaran' ? rawId.replace(/\D/g, '') : rawId;
-
-        if (i < startIndex) {
-          results.total++;
-          if (existingIds) existingIds.add(idValue);
-          continue;
-        }
-
-        results.total++;
 
         let isDuplicate = false;
         if (existingIds) {
@@ -105,9 +72,6 @@ class ImportService {
 
         if (batch.length >= this.batchSize) {
           await this._flush(batch, results, totalRows, onProgress);
-          if (typeof this.repository.saveProgress === 'function') {
-            this.repository.saveProgress(totalRows, i);
-          }
         }
       } catch (error) {
         console.error(`[ImportService] error at row ${i}:`, error.message);
@@ -117,7 +81,6 @@ class ImportService {
       }
     }
 
-    // flush remaining
     try {
       await this._flush(batch, results, totalRows, onProgress);
     } catch (error) {
@@ -126,10 +89,6 @@ class ImportService {
         results.failed.push({ row: item, reason: error.message });
       }
       this._progress(onProgress, results.total, totalRows, 'error', error.message);
-    }
-
-    if (typeof this.repository.clearProgress === 'function') {
-      try { this.repository.clearProgress(totalRows); } catch {}
     }
 
     return results;

@@ -86,30 +86,6 @@ class PendaftaranRepository {
     return dir;
   }
 
-  saveProgress(totalRows, lastIndex) {
-    const data = { totalRows, lastIndex, updatedAt: new Date().toISOString() };
-    fs.writeFileSync(
-      path.join(this._sqlDir(), `progress-${totalRows}.json`),
-      JSON.stringify(data),
-      'utf8'
-    );
-  }
-
-  loadProgress(totalRows) {
-    const file = path.join(this._sqlDir(), `progress-${totalRows}.json`);
-    if (!fs.existsSync(file)) return null;
-    try {
-      return JSON.parse(fs.readFileSync(file, 'utf8')).lastIndex;
-    } catch {
-      return null;
-    }
-  }
-
-  clearProgress(totalRows) {
-    const file = path.join(this._sqlDir(), `progress-${totalRows}.json`);
-    if (fs.existsSync(file)) fs.unlinkSync(file);
-  }
-
   generateInsertSql(dataArray) {
     if (!this._sqlFile) {
       const ts = new Date().toISOString().replace(/[:.]/g, '-');
